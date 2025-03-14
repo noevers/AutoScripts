@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# 脚本名称: block_vodafone.sh
-# 功能: 安装 ufw 防火墙，并禁止访问 Vodafone 的所有站点
+# 脚本名称: block_vodafone_hosts.sh
+# 功能: 修改 /etc/hosts 文件，屏蔽指定的 Vodafone 域名
 
 # 检查是否以 root 用户运行
 if [ "$EUID" -ne 0 ]; then
@@ -9,31 +9,42 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# Vodafone 的 IP 地址范围（示例）
-VODAFONE_IPS=(
-  "123.45.67.0/24"
-  "234.56.78.0/24"
-  "139.7.147.0/24"
+# 目标域名列表
+DOMAINS=(
+  "vodafone.com"
+  "vodafone.com.tr"
+  "vodafone.com.eg"
+  "vodafone.de"
+  "vodafone.co.uk"
+  "vodafone.com.it"
+  "vodafone.com.au"
+  "vodacom.co.za"
+  "vodafone.co.tz"
+  "vodacom.cd"
+  "vodafone.nl"
+  "vodafone.es"
+  "vodafone.gr"
+  "vodafone.ie"
+  "vodafone.ro"
+  "vodafone.pt"
+  "vodafone.al"
+  "vodafone.cz"
+  "vodafone.co.ls"
 )
 
-# 安装 ufw 防火墙
-echo "正在安装 ufw 防火墙..."
-apt update
-apt install -y ufw
+# 备份 /etc/hosts 文件
+echo "备份 /etc/hosts 文件..."
+cp /etc/hosts /etc/hosts.bak
 
-# 启用 ufw 防火墙
-echo "启用 ufw 防火墙..."
-ufw enable
-
-# 禁止访问 Vodafone 的 IP 地址范围
-for ip in "${VODAFONE_IPS[@]}"; do
-  echo "禁止访问 IP 范围: $ip"
-  ufw deny out to $ip
-done
-
-# 查看当前规则
-echo "当前 ufw 规则如下："
-ufw status verbose
+# 添加规则到 /etc/hosts 文件
+echo "屏蔽指定的 Vodafone 域名..."
+{
+  echo "# Block Vodafone domains"
+  for DOMAIN in "${DOMAINS[@]}"; do
+    echo "127.0.0.1 $DOMAIN"
+    echo "127.0.0.1 www.$DOMAIN"
+  done
+} >> /etc/hosts
 
 # 提示完成
-echo "ufw 防火墙配置完成！已禁止访问 Vodafone 的所有站点。"
+echo "已成功屏蔽指定的 Vodafone 域名！"
