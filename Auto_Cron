@@ -1,0 +1,32 @@
+#!/bin/bash
+
+wget -O 
+
+# 定义要执行的脚本路径
+SCRIPT_PATH="/usr/local/bin/update_ssh_port.sh"
+
+# 定义定时任务的时间表达式（每天午夜执行）
+CRON_SCHEDULE="12 0 * * *"
+
+# 检查脚本是否存在
+if [ ! -f "$SCRIPT_PATH" ]; then
+    echo "错误：脚本 $SCRIPT_PATH 不存在！"
+    exit 1
+fi
+
+# 检查脚本是否具有可执行权限
+if [ ! -x "$SCRIPT_PATH" ]; then
+    echo "错误：脚本 $SCRIPT_PATH 没有可执行权限！"
+    exit 1
+fi
+
+# 将定时任务添加到当前用户的 crontab 中
+(crontab -l 2>/dev/null; echo "$CRON_SCHEDULE $SCRIPT_PATH") | crontab -
+
+# 检查是否添加成功
+if crontab -l | grep -q "$SCRIPT_PATH"; then
+    echo "定时任务添加成功！"
+else
+    echo "错误：定时任务添加失败！"
+    exit 1
+fi
