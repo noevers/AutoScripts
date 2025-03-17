@@ -20,8 +20,9 @@ generate_port() {
     # 使用哈希算法生成一个固定范围内的端口号
     PORT=$(( (CURRENT_DATE % 20000) + 30000 ))
 
-    echo -e "${GREEN}√ 生成的新端口：$PORT${NC}"
-    echo "$PORT"
+    # 将调试信息输出到标准错误（不影响返回值）
+    echo -e "${GREEN}√ 生成的新端口：$PORT${NC}" >&2
+    echo "$PORT"  # 仅返回端口号到标准输出
 }
 
 # ------------------------- 更新 SSH 端口 -------------------------
@@ -32,9 +33,9 @@ update_ssh_port() {
     # 备份 SSH 配置文件
     cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
 
-    # 更新 SSH 端口
+    # 更新 SSH 端口（使用 | 作为分隔符）
     if grep -q "^Port" /etc/ssh/sshd_config; then
-        sed -i "s/^Port.*/Port $NEW_PORT/" /etc/ssh/sshd_config
+        sed -i "s|^Port.*|Port $NEW_PORT|" /etc/ssh/sshd_config
     else
         echo "Port $NEW_PORT" >> /etc/ssh/sshd_config
     fi
@@ -76,7 +77,7 @@ main() {
 
     echo -e "${YELLOW}当前 SSH 端口：$OLD_PORT${NC}"
 
-    # 生成新端口
+    # 生成新端口（确保只捕获有效端口号）
     NEW_PORT=$(generate_port)
 
     # 更新 SSH 端口
