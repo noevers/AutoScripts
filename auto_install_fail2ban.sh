@@ -18,6 +18,21 @@ GREEN='\033[32m'
 YELLOW='\033[33m'
 NC='\033[0m'
 
+
+ # 获取 SSH 端口
+SSHD_CONFIG="/etc/ssh/sshd_config"
+
+# 获取 SSH 端口
+PORTS=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}' || true)
+SSH_PORTS="22"
+# 判断是否获取到端口
+if [[ -z "$PORTS" ]]; then
+    echo -e "${YELLOW}警告：未配置 SSH 端口，使用默认端口 22"
+    SSH_PORTS="22"
+else 
+    SSH_PORTS=$PORTS
+fi
+
 # ------------------------- 安装 UFW 防火墙 -------------------------
 install_ufw() {
     echo -e "${YELLOW}[1/4] 配置 UFW 防火墙...${NC}"
@@ -35,22 +50,9 @@ install_ufw() {
     ufw default deny incoming  # 默认阻止所有入站
     ufw default allow outgoing # 允许所有出站
 
-    # 获取 SSH 端口
-    SSHD_CONFIG="/etc/ssh/sshd_config"
-    
-    # 获取 SSH 端口
-    PORTS=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}' || true)
-    SSH_PORTS="22"
-    # 判断是否获取到端口
-    if [[ -z "$PORTS" ]]; then
-        echo -e "${YELLOW}警告：未配置 SSH 端口，使用默认端口 22"
-        SSH_PORTS="22"
-    else 
-        SSH_PORTS=$PORTS
-    fi
 
     # 允许 SSH 端口
-    
+    ufw allow "$SSH_PORT/tcp" comment 'SSH Port'
 
     # 允许 web 端口
     ufw allow 80/tcp comment 'SSH Port'
@@ -85,12 +87,6 @@ install_fail2ban() {
     apt-get update -qq
     apt-get install -y fail2ban
 
-    # 获取 SSH 端口
-    SSHD_CONFIG="/etc/ssh/sshd_config"
-    SSH_PORT=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}')
-    if [[ -z "$SSH_PORT" ]]; then
-        SSH_PORT=22
-    fi
 
     # 生成 Fail2Ban 配置文件
     CONF_FILE="/etc/fail2ban/jail.local"
