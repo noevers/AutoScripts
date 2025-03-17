@@ -43,7 +43,12 @@ install_ufw() {
     # 获取 SSH 端口
     SSHD_CONFIG="/etc/ssh/sshd_config"
     SSH_PORT=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}')
-    if [[ -z "$SSH_PORT" ]]; then
+    echo 'sss'
+    if [ -z "$SSH_PORT" ]; then
+        SSH_PORT=22
+    fi
+
+    if [ -n "$SSH_PORT" ]; then
         SSH_PORT=22
     fi
 
