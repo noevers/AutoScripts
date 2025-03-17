@@ -45,6 +45,9 @@ install_ufw() {
     # 允许 SSH 端口
     ufw allow "$SSH_PORT/tcp" comment 'SSH Port'
 
+    # 拒绝 SSH 端口
+    ufw deny out 22/tcp
+
     # 启用 UFW
     ufw --force enable
     echo -e "${GREEN}√ UFW 已激活，当前规则：${NC}"
