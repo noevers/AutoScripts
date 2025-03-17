@@ -39,16 +39,18 @@ install_ufw() {
     SSHD_CONFIG="/etc/ssh/sshd_config"
     
     # 获取 SSH 端口
-    SSH_PORTS=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}' || true)
-    
+    PORTS=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}' || true)
+    SSH_PORTS="22"
     # 判断是否获取到端口
-    if [[ -z "$SSH_PORTS" ]]; then
+    if [[ -z "$PORTS" ]]; then
         echo -e "${YELLOW}警告：未配置 SSH 端口，使用默认端口 22${NC}"
         SSH_PORTS="22"
+    else 
+        SSH_PORTS=$PORTS
     fi
 
     # 允许 SSH 端口
-    ufw allow "$SSH_PORT/tcp" comment 'SSH Port'
+    
 
     # 允许 web 端口
     ufw allow 80/tcp comment 'SSH Port'
