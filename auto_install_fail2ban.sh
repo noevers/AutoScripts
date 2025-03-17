@@ -24,7 +24,7 @@ SSHD_CONFIG="/etc/ssh/sshd_config"
 
 # 获取 SSH 端口
 PORTS=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}' || true)
-SSH_PORTS="22"
+SSH_PORTS=22
 # 判断是否获取到端口
 if [[ -z "$PORTS" ]]; then
     echo -e "${YELLOW}警告：未配置 SSH 端口，使用默认端口 22"
