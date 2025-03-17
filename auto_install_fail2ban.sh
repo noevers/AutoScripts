@@ -43,7 +43,7 @@ install_ufw() {
     SSH_PORTS="22"
     # 判断是否获取到端口
     if [[ -z "$PORTS" ]]; then
-        echo -e "${YELLOW}警告：未配置 SSH 端口，使用默认端口 22${NC}"
+        echo -e "${YELLOW}警告：未配置 SSH 端口，使用默认端口 22"
         SSH_PORTS="22"
     else 
         SSH_PORTS=$PORTS
