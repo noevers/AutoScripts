@@ -22,16 +22,11 @@ NC='\033[0m'
 install_ufw() {
     echo -e "${YELLOW}[1/4] 配置 UFW 防火墙...${NC}"
 
-    apt-get remove -y --purge ufw
-    apt-get -y autoremove
-    apt-get  clean
-
     # 安装 UFW
     if ! command -v ufw &> /dev/null; then
         echo "  安装 UFW 组件..."
         apt-get update -qq
         apt-get install -y ufw
-        ufw enable
     fi
 
     # 初始化防火墙规则
@@ -42,14 +37,14 @@ install_ufw() {
 
     # 获取 SSH 端口
     SSHD_CONFIG="/etc/ssh/sshd_config"
-    SSH_PORT=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}')
-    echo 'sss'
-    if [ -z "$SSH_PORT" ]; then
-        SSH_PORT=22
-    fi
-
-    if [ -n "$SSH_PORT" ]; then
-        SSH_PORT=22
+    
+    # 获取 SSH 端口
+    SSH_PORTS=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}' || true)
+    
+    # 判断是否获取到端口
+    if [[ -z "$SSH_PORTS" ]]; then
+        echo -e "${YELLOW}警告：未配置 SSH 端口，使用默认端口 22${NC}"
+        SSH_PORTS="22"
     fi
 
     # 允许 SSH 端口
