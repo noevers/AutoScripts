@@ -45,6 +45,12 @@ install_ufw() {
     # 允许 SSH 端口
     ufw allow "$SSH_PORT/tcp" comment 'SSH Port'
 
+    # 允许 web 端口
+    ufw allow 80/tcp comment 'SSH Port'
+    ufw allow 443/tcp comment 'SSH Port'
+    ufw allow 8090/tcp comment 'SSH Port'
+
+
     # 阻止所有从 22 端口的出口流量
     ufw deny out 22/tcp comment 'Block outbound traffic on port 22'
     ufw deny out 22/udp comment 'Block outbound traffic on port 22'
