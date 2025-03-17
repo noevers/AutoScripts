@@ -142,7 +142,7 @@ show_info() {
     echo -e "${GREEN}
     ███████╗ 部署成功！ ███████╗
     ╚═注意事项═╝
-    1. 当前 SSH 端口: ${SSH_PORT}
+    1. 当前 SSH 端口: ${SSH_PORTS}
     2. 封锁策略: 3 次失败后永久封禁
     3. 实时监控日志: tail -f /var/log/fail2ban.log
     4. 查看被封 IP: fail2ban-client status sshd
