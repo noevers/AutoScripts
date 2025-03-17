@@ -31,6 +31,7 @@ install_ufw() {
         echo "  安装 UFW 组件..."
         apt-get update -qq
         apt-get install -y ufw
+        ufw enable
     fi
 
     # 初始化防火墙规则
