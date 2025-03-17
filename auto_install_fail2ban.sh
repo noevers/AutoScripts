@@ -51,12 +51,12 @@ install_ufw() {
 
 
     # 允许 SSH 端口
-    ufw allow $SSH_PORT/tcp comment 'SSH Port'
+    ufw allow "$SSH_PORT/tcp" comment 'SSH Port'
 
     # 允许 web 端口
-    ufw allow 80/tcp comment 'SSH Port'
-    ufw allow 443/tcp comment 'SSH Port'
-    ufw allow 8090/tcp comment 'SSH Port'
+    ufw allow 80/tcp 
+    ufw allow 443/tcp 
+    ufw allow 8090/tcp
 
 
     # 阻止所有从 22 端口的出口流量
