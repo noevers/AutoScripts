@@ -29,7 +29,7 @@ SSH_PORTS=22
 if [[ -z "$PORTS" ]]; then
     echo -e "${YELLOW}警告：未配置 SSH 端口，使用默认端口 22"
 else 
-    SSH_PORTS=$PORTS
+    SSH_PORTS=$((PORTS))
 fi
 
 # ------------------------- 安装 UFW 防火墙 -------------------------
@@ -51,7 +51,7 @@ install_ufw() {
 
 
     # 允许 SSH 端口
-    ufw allow "$SSH_PORT/tcp" comment 'SSH Port'
+    ufw allow $SSH_PORT/tcp comment 'SSH Port'
 
     # 允许 web 端口
     ufw allow 80/tcp comment 'SSH Port'
