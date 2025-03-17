@@ -23,9 +23,9 @@ install_ufw() {
     echo -e "${YELLOW}[1/4] 配置 UFW 防火墙...${NC}"
 
     
-    sudo apt-get remove --purge ufw
-    sudo apt-get autoremove
-    sudo apt-get clean
+    apt-get remove --purge ufw
+    apt-get autoremove
+    apt-get clean
 
     # 安装 UFW
     if ! command -v ufw &> /dev/null; then
