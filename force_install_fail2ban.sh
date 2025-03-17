@@ -22,7 +22,6 @@ NC='\033[0m'
 install_ufw() {
     echo -e "${YELLOW}[1/4] 配置 UFW 防火墙...${NC}"
 
-    
     apt-get remove --purge ufw
     apt-get autoremove
     apt-get clean
