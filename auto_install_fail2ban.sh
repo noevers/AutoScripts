@@ -91,10 +91,7 @@ bantime  = -1
 # 允许最大失败次数
 maxretry = 3
 # 检测时间窗口：10 分钟
-findtime = 600
-# 日志目标
-destemail = your_email@example.com  # 替换为接收警报的邮箱
-sender    = fail2ban@$(hostname)
+findtime = 180
 
 [sshd]
 enabled   = true
@@ -119,9 +116,11 @@ validate_setup() {
         exit 1
     fi
 
-    # 检查 Fail2Ban 状态
-    if ! fail2ban-client status sshd | grep -qw Active; then
-        echo -e "${RED}错误：Fail2Ban 服务异常！${NC}" >&2
+    # 验证服务状态
+    if systemctl is-active --quiet fail2ban; then
+        echo -e "${GREEN}√ Fail2Ban 服务正在运行${NC}"
+    else
+        echo -e "${RED}错误：Fail2Ban 服务未启动${NC}" >&2
         exit 1
     fi
 
