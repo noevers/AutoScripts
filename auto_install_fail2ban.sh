@@ -17,21 +17,22 @@ RED='\033[31m'
 GREEN='\033[32m'
 YELLOW='\033[33m'
 NC='\033[0m'
+SSH_PORTS=22
 
 
- # 获取 SSH 端口
-SSHD_CONFIG="/etc/ssh/sshd_config"
+# ------------------------- 获取ssh端口 -------------------------
+get_ssh_port() {
+    SSHD_CONFIG="/etc/ssh/sshd_config"
+    # 判断是否获取到端口
+    PORTS=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}' || true)
+    if [[ -z "$PORTS" ]]; then
+        echo -e "${YELLOW}警告：未配置 SSH 端口，使用默认端口 22${NC}"
+    else 
+        SSH_PORTS=$PORTS
+    fi
 
-# 获取 SSH 端口
-PORTS=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}' || true)
-SSH_PORTS="22"
-# 判断是否获取到端口
-if [[ -z "$PORTS" ]]; then
-    echo -e "${YELLOW}警告：未配置 SSH 端口，使用默认端口 22"
-else 
-    SSH_PORTS=$PORTS
-fi
-
+    echo -e "SSH端口：${SSH_PORTS} 配置完成${NC}"
+}
 # ------------------------- 安装 UFW 防火墙 -------------------------
 install_ufw() {
     echo -e "${YELLOW}[1/4] 配置 UFW 防火墙...${NC}"
@@ -104,7 +105,7 @@ findtime = 180
 [sshd]
 enabled   = true
 filter    = sshd
-port      = $((SSH_PORT))
+port      = $SSH_PORT
 logpath   = %(sshd_log)s
 maxretry  = 3
 EOF
@@ -150,6 +151,7 @@ show_info() {
 }
 
 # 主执行流程
+get_ssh_port
 install_ufw
 install_fail2ban
 validate_setup
