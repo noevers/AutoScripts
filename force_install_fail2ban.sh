@@ -1,14 +1,14 @@
 #!/bin/bash
-# 功能：强制部署UFW防火墙 + 覆盖安装Fail2Ban实现IP封锁
-# 版本：v2.1 支持覆盖安装配置
+# 功能：自动安装 UFW 防火墙和 Fail2Ban，联动封锁恶意 IP
+# 适用系统：Debian 11
 # 作者：运维专家
 
 # 严格错误检查
-set -eo pipefail
+set -euo pipefail
 
-# 必须使用root权限
+# 必须使用 root 权限
 if [[ $EUID -ne 0 ]]; then
-    echo -e "\033[31m错误：必须使用root权限或sudo运行此脚本\033[0m" >&2
+    echo -e "\033[31m错误：必须使用 root 权限或 sudo 运行此脚本\033[0m" >&2
     exit 1
 fi
 
@@ -18,13 +18,13 @@ GREEN='\033[32m'
 YELLOW='\033[33m'
 NC='\033[0m'
 
-# ------------------------- 安装UFW防火墙 -------------------------
+# ------------------------- 安装 UFW 防火墙 -------------------------
 install_ufw() {
-    echo -e "${YELLOW}[1/3] 正在配置UFW防火墙...${NC}"
-    
-    # 安装UFW
+    echo -e "${YELLOW}[1/4] 配置 UFW 防火墙...${NC}"
+
+    # 安装 UFW
     if ! command -v ufw &> /dev/null; then
-        echo "  安装UFW组件..."
+        echo "  安装 UFW 组件..."
         apt-get update -qq
         apt-get install -y ufw
     fi
@@ -34,84 +34,108 @@ install_ufw() {
     ufw --force reset          # 重置已有规则
     ufw default deny incoming  # 默认阻止所有入站
     ufw default allow outgoing # 允许所有出站
-    
-    # SSH端口处理（关键！）
-    if ss -tnlp | grep -q ':2026 '; then
-        ufw allow 2026/tcp comment 'SSH Default Port'
-        ufw deny out 22/tcp
-    else
-        echo -e "${RED}警告：未检测到SSH在22端口运行，请手动修改UFW规则！${NC}"
+
+    # 获取 SSH 端口
+    SSHD_CONFIG="/etc/ssh/sshd_config"
+    SSH_PORT=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}')
+    if [[ -z "$SSH_PORT" ]]; then
+        SSH_PORT=22
     fi
 
+    # 允许 SSH 端口
+    ufw allow "$SSH_PORT/tcp" comment 'SSH Port'
+
+    # 启用 UFW
     ufw --force enable
-    echo -e "${GREEN}√ UFW已激活，当前规则：${NC}"
+    echo -e "${GREEN}√ UFW 已激活，当前规则：${NC}"
     ufw status numbered | sed 's/^/  /'
 }
 
-# --------------------- 强制覆盖安装Fail2Ban ---------------------
-force_install_fail2ban() {
-    echo -e "${YELLOW}[2/3] 强制配置Fail2Ban...${NC}"
-    
-    # 移除旧版本
+# ------------------------- 安装 Fail2Ban -------------------------
+install_fail2ban() {
+    echo -e "${YELLOW}[2/4] 配置 Fail2Ban...${NC}"
+
+    # 卸载旧版 Fail2Ban
     if dpkg -l | grep -q fail2ban; then
-        echo "  卸载旧版Fail2Ban..."
+        echo "  卸载旧版 Fail2Ban..."
         systemctl stop fail2ban
         apt-get remove --purge -y fail2ban
         rm -rf /etc/fail2ban
     fi
 
-    # 安装新版
-    echo "  安装新版Fail2Ban..."
+    # 安装新版 Fail2Ban
+    echo "  安装 Fail2Ban..."
     apt-get update -qq
     apt-get install -y fail2ban
 
-    # 写入强制配置
-    echo "  生成联动配置文件..."
-    tee /etc/fail2ban/jail.d/ufw.conf > /dev/null << EOF
+    # 获取 SSH 端口
+    SSHD_CONFIG="/etc/ssh/sshd_config"
+    SSH_PORT=$(grep -E "^Port\s+" "$SSHD_CONFIG" | awk '{print $2}')
+    if [[ -z "$SSH_PORT" ]]; then
+        SSH_PORT=22
+    fi
+
+    # 生成 Fail2Ban 配置文件
+    CONF_FILE="/etc/fail2ban/jail.local"
+    echo "  生成 Fail2Ban 配置文件..."
+    cat > "$CONF_FILE" << EOF
 [DEFAULT]
-bantime  = 365d
-findtime = 5m
-maxretry = 3
+# 使用 UFW 作为封禁工具
 banaction = ufw
-action = %(action_mwl)s
+# 封禁时间：永久
+bantime  = -1
+# 允许最大失败次数
+maxretry = 3
+# 检测时间窗口：10 分钟
+findtime = 180
 
 [sshd]
-enabled = true
-port    = ssh
-filter  = sshd
-logpath = %(sshd_log)s
+enabled   = true
+filter    = sshd
+port      = $SSH_PORT
+logpath   = %(sshd_log)s
+maxretry  = 3
 EOF
 
-    # 重启服务
+    # 重启 Fail2Ban 服务
     systemctl restart fail2ban
+    echo -e "${GREEN}√ Fail2Ban 配置完成${NC}"
 }
 
 # ------------------------- 验证部署结果 -------------------------
 validate_setup() {
-    echo -e "${YELLOW}[3/3] 运行状态验证...${NC}"
-    
-    # 检查UFW
+    echo -e "${YELLOW}[3/4] 验证部署结果...${NC}"
+
+    # 检查 UFW 状态
     if ! ufw status | grep -qw active; then
-        echo -e "${RED}错误：UFW未正常启动！${NC}" >&2
+        echo -e "${RED}错误：UFW 未正常启动！${NC}" >&2
         exit 1
     fi
 
-    # 检查Fail2Ban
+    # 检查 Fail2Ban 状态
     if ! fail2ban-client status sshd | grep -qw Active; then
-        echo -e "${RED}错误：Fail2Ban服务异常！${NC}" >&2
+        echo -e "${RED}错误：Fail2Ban 服务异常！${NC}" >&2
         exit 1
     fi
 
+    echo -e "${GREEN}√ 所有服务运行正常${NC}"
+}
+
+# ------------------------- 输出部署信息 -------------------------
+show_info() {
+    echo -e "${YELLOW}[4/4] 部署完成！${NC}"
     echo -e "${GREEN}
     ███████╗ 部署成功！ ███████╗
     ╚═注意事项═╝
-    1. 当前SSH端口: 22 (如需修改请更新UFW和Fail2Ban配置)
-    2. 封锁策略: 3次失败封禁7天
-    3. 实时监控: tail -f /var/log/fail2ban.log
+    1. 当前 SSH 端口: $SSH_PORT
+    2. 封锁策略: 3 次失败后永久封禁
+    3. 实时监控日志: tail -f /var/log/fail2ban.log
+    4. 查看被封 IP: fail2ban-client status sshd
     ${NC}"
 }
 
 # 主执行流程
 install_ufw
-force_install_fail2ban
+install_fail2ban
 validate_setup
+show_info
