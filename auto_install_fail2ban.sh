@@ -31,11 +31,11 @@ get_ssh_port() {
         SSH_PORTS=$PORTS
     fi
 
-    echo -e "SSH端口：${SSH_PORTS} 配置完成${NC}"
+    echo -e "${YELLOW}[1/5] 获取SSH端口：${SSH_PORTS} 配置完成${NC}"
 }
 # ------------------------- 安装 UFW 防火墙 -------------------------
 install_ufw() {
-    echo -e "${YELLOW}[1/4] 配置 UFW 防火墙...${NC}"
+    echo -e "${YELLOW}[2/5] 配置 UFW 防火墙...${NC}"
 
     # 安装 UFW
     if ! command -v ufw &> /dev/null; then
@@ -52,7 +52,7 @@ install_ufw() {
 
 
     # 允许 SSH 端口
-    ufw allow "$SSH_PORT/tcp" comment 'SSH Port'
+    ufw allow "${SSH_PORTS}/tcp" comment 'SSH Port'
 
     # 允许 web 端口
     ufw allow 80/tcp 
@@ -72,7 +72,7 @@ install_ufw() {
 
 # ------------------------- 安装 Fail2Ban -------------------------
 install_fail2ban() {
-    echo -e "${YELLOW}[2/4] 配置 Fail2Ban...${NC}"
+    echo -e "${YELLOW}[3/5] 配置 Fail2Ban...${NC}"
 
     # 卸载旧版 Fail2Ban
     if dpkg -l | grep -q fail2ban; then
@@ -105,7 +105,7 @@ findtime = 180
 [sshd]
 enabled   = true
 filter    = sshd
-port      = $SSH_PORT
+port      = ${SSH_PORTS}
 logpath   = %(sshd_log)s
 maxretry  = 3
 EOF
@@ -117,7 +117,7 @@ EOF
 
 # ------------------------- 验证部署结果 -------------------------
 validate_setup() {
-    echo -e "${YELLOW}[3/4] 验证部署结果...${NC}"
+    echo -e "${YELLOW}[4/5] 验证部署结果...${NC}"
 
     # 检查 UFW 状态
     if ! ufw status | grep -qw active; then
@@ -138,7 +138,7 @@ validate_setup() {
 
 # ------------------------- 输出部署信息 -------------------------
 show_info() {
-    echo -e "${YELLOW}[4/4] 部署完成！${NC}"
+    echo -e "${YELLOW}[5/5] 部署完成！${NC}"
     echo -e "${GREEN}
     ███████╗ 部署成功！ ███████╗
     ╚═注意事项═╝
