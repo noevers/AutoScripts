@@ -40,6 +40,21 @@ def remote_file_exists(ssh, remote_file_path):
         print(f"Failed to check remote file {remote_file_path}: {e}")
         return False
 
+def remote_mkdir(ssh, remote_dir):
+    """
+    在远程服务器上递归创建目录
+    """
+    try:
+        stdin, stdout, stderr = ssh.exec_command(f"mkdir -p {remote_dir}")
+        stderr_output = stderr.read().decode().strip()
+        if stderr_output:
+            print(f"Failed to create remote directory {remote_dir}: {stderr_output}")
+            return False
+        return True
+    except Exception as e:
+        print(f"Failed to create remote directory {remote_dir}: {e}")
+        return False
+
 def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, remote_password):
     """
     使用 SCP 传输文件到远程服务器
@@ -55,6 +70,13 @@ def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, 
         # 检查远程文件是否存在
         if remote_file_exists(ssh, remote_path):
             print(f"文件已存在，跳过推送: {file_path} -> {remote_path}")
+            ssh.close()
+            return
+
+        # 确保远程目录存在
+        remote_dir = os.path.dirname(remote_path)
+        if not remote_mkdir(ssh, remote_dir):
+            print(f"无法创建远程目录: {remote_dir}")
             ssh.close()
             return
 
