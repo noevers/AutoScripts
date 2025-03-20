@@ -4,6 +4,7 @@ import paramiko
 from scp import SCPClient
 from threading import Thread, Event
 from queue import Queue
+import traceback  # 用于打印完整的堆栈跟踪
 
 def get_user_input():
     """
@@ -60,12 +61,20 @@ def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, 
     使用 SCP 传输文件到远程服务器
     """
     try:
+        # 检查本地文件是否存在
+        if not os.path.exists(file_path):
+            print(f"本地文件不存在: {file_path}")
+            return
+        if not os.access(file_path, os.R_OK):
+            print(f"本地文件不可读: {file_path}")
+            return
+
         # 创建 SSH 客户端
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        print(f"正在连接远程服务器 {remote_host}...")
+        print(f"正在连接远程服务器 {remote_host}:{remote_port}...")
         ssh.connect(remote_host, port=remote_port, username=remote_user, password=remote_password)
-        print(f"成功连接到远程服务器 {remote_host}！")
+        print(f"成功连接到远程服务器 {remote_host}:{remote_port}！")
 
         # 检查远程文件是否存在
         if remote_file_exists(ssh, remote_path):
@@ -88,7 +97,11 @@ def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, 
 
         ssh.close()
     except Exception as e:
-        print(f"推送文件失败: {file_path} -> {remote_path}, 错误: {e}")
+        # 打印完整的错误信息和堆栈跟踪
+        print(f"推送文件失败: {file_path} -> {remote_path}")
+        print(f"错误详情: {e}")
+        print("堆栈跟踪:")
+        traceback.print_exc()
 
 def worker(file_queue, remote_base_path, remote_host, remote_port, remote_user, remote_password, stop_event):
     """
