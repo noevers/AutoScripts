@@ -3,7 +3,7 @@
 # 一键脚本：安装 pip3、paramiko、scp 并运行 SCP 推送脚本
 
 # 下载的 Python 脚本文件名
-PYTHON_SCRIPT="scp_push_skip_existing.py"
+PYTHON_SCRIPT="push_files.py"
 # Python 脚本的下载链接（假设脚本托管在某个 URL）
 SCRIPT_URL="https://raw.githubusercontent.com/noevers/AutoScripts/refs/heads/main/push_files.py"
 
