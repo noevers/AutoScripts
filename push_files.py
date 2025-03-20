@@ -2,7 +2,7 @@ import os
 import fnmatch
 import paramiko
 from scp import SCPClient
-from threading import Thread
+from threading import Thread, Event
 from queue import Queue
 
 def get_user_input():
@@ -48,33 +48,37 @@ def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, 
         # 创建 SSH 客户端
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        print(f"正在连接远程服务器 {remote_host}...")
         ssh.connect(remote_host, port=remote_port, username=remote_user, password=remote_password)
+        print(f"成功连接到远程服务器 {remote_host}！")
 
         # 检查远程文件是否存在
         if remote_file_exists(ssh, remote_path):
-            print(f"Skipped (already exists): {file_path} -> {remote_path}")
+            print(f"文件已存在，跳过推送: {file_path} -> {remote_path}")
             ssh.close()
             return
 
         # 创建 SCP 客户端
+        print(f"开始推送文件: {file_path} -> {remote_path}")
         with SCPClient(ssh.get_transport()) as scp:
             scp.put(file_path, remote_path)
-            print(f"Transferred: {file_path} -> {remote_path}")
+            print(f"文件推送完成: {file_path} -> {remote_path}")
 
         ssh.close()
     except Exception as e:
-        print(f"Failed to transfer {file_path}: {e}")
+        print(f"推送文件失败: {file_path} -> {remote_path}, 错误: {e}")
 
-def worker(file_queue, remote_base_path, remote_host, remote_port, remote_user, remote_password):
+def worker(file_queue, remote_base_path, remote_host, remote_port, remote_user, remote_password, stop_event):
     """
     工作线程：从队列中获取文件并传输
     """
-    while True:
+    while not stop_event.is_set():
         try:
-            local_file_path, remote_file_path = file_queue.get(timeout=5)  # 设置超时时间
+            # 从队列中获取任务，设置超时时间
+            local_file_path, remote_file_path = file_queue.get(timeout=5)
             scp_transfer(local_file_path, remote_file_path, remote_host, remote_port, remote_user, remote_password)
         except Exception as e:
-            print(f"Worker error: {e}")
+            print(f"工作线程错误: {e}")
         finally:
             file_queue.task_done()  # 确保任务完成
 
@@ -106,19 +110,28 @@ def push_files(local_path, pattern, remote_host, remote_port, remote_user, remot
                     remote_file_path = os.path.join(remote_base_path, relative_path)
                     file_queue.put((local_file_path, remote_file_path))
     else:
-        print(f"Invalid path: {local_path}")
+        print(f"无效路径: {local_path}")
         return
 
     # 创建并启动线程
+    stop_event = Event()  # 用于通知线程退出
     thread_list = []
     for _ in range(threads):
-        thread = Thread(target=worker, args=(file_queue, remote_base_path, remote_host, remote_port, remote_user, remote_password), daemon=True)
+        thread = Thread(target=worker, args=(file_queue, remote_base_path, remote_host, remote_port, remote_user, remote_password, stop_event), daemon=True)
         thread.start()
         thread_list.append(thread)
 
     # 等待所有任务完成
     file_queue.join()
-    print("All files transferred!")
+
+    # 通知线程退出
+    stop_event.set()
+
+    # 等待所有线程退出
+    for thread in thread_list:
+        thread.join()
+
+    print("所有文件推送完成！")
 
 if __name__ == "__main__":
     # 文件队列
