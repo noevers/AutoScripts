@@ -118,12 +118,16 @@ def worker(file_queue, remote_base_path, remote_host, remote_port, remote_user, 
     while not stop_event.is_set():
         try:
             # 从队列中获取任务，设置超时时间
-            local_file_path, remote_file_path = file_queue.get(timeout=5)
-            scp_transfer(local_file_path, remote_file_path, remote_host, remote_port, remote_user, remote_password)
+            local_file_path, remote_file_path = file_queue.get(timeout=5)  # 设置超时时间
+            try:
+                scp_transfer(local_file_path, remote_file_path, remote_host, remote_port, remote_user, remote_password)
+            except Exception as e:
+                print(f"推送文件失败: {local_file_path} -> {remote_file_path}, 错误: {e}")
+            finally:
+                file_queue.task_done()  # 确保任务完成
         except Exception as e:
             print(f"工作线程错误: {e}")
-        finally:
-            file_queue.task_done()  # 确保任务完成
+            break  # 退出线程
 
 def push_files(local_path, pattern, remote_host, remote_port, remote_user, remote_password, remote_base_path, threads):
     """
