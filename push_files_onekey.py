@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 一键脚本：安装 pip3、paramiko 并运行 SCP 推送脚本
+# 一键脚本：安装 pip3、paramiko、scp 并运行 SCP 推送脚本
 
 # 下载的 Python 脚本文件名
 PYTHON_SCRIPT="scp_push_skip_existing.py"
@@ -25,12 +25,12 @@ if ! command -v pip3 &> /dev/null; then
     echo "pip3 安装成功！"
 fi
 
-# 安装 paramiko
-echo "正在安装 paramiko..."
-pip3 install paramiko
+# 安装 paramiko 和 scp
+echo "正在安装 paramiko 和 scp..."
+pip3 install paramiko scp
 
 if [ $? -ne 0 ]; then
-    echo "安装 paramiko 失败，请检查网络连接或手动安装。"
+    echo "安装 paramiko 或 scp 失败，请检查网络连接或手动安装。"
     exit 1
 fi
 
