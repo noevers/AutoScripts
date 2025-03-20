@@ -5,6 +5,8 @@ from scp import SCPClient
 from threading import Thread, Event
 from queue import Queue
 import traceback  # 用于打印完整的堆栈跟踪
+import time  # 用于重试间隔
+
 
 def get_user_input():
     """
@@ -56,52 +58,58 @@ def remote_mkdir(ssh, remote_dir):
         print(f"Failed to create remote directory {remote_dir}: {e}")
         return False
 
-def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, remote_password):
+def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, remote_password, retries=3):
     """
-    使用 SCP 传输文件到远程服务器
+    使用 SCP 传输文件到远程服务器，支持重试
     """
-    try:
-        # 检查本地文件是否存在
-        if not os.path.exists(file_path):
-            print(f"本地文件不存在: {file_path}")
-            return
-        if not os.access(file_path, os.R_OK):
-            print(f"本地文件不可读: {file_path}")
-            return
+    for attempt in range(retries):
+        try:
+            # 检查本地文件是否存在
+            if not os.path.exists(file_path):
+                print(f"本地文件不存在: {file_path}")
+                return
+            if not os.access(file_path, os.R_OK):
+                print(f"本地文件不可读: {file_path}")
+                return
 
-        # 创建 SSH 客户端
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        print(f"正在连接远程服务器 {remote_host}:{remote_port}...")
-        ssh.connect(remote_host, port=remote_port, username=remote_user, password=remote_password)
-        print(f"成功连接到远程服务器 {remote_host}:{remote_port}！")
+            # 创建 SSH 客户端
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            print(f"正在连接远程服务器 {remote_host}:{remote_port}...")
+            ssh.connect(remote_host, port=remote_port, username=remote_user, password=remote_password, timeout=30)  # 设置超时时间
+            print(f"成功连接到远程服务器 {remote_host}:{remote_port}！")
 
-        # 检查远程文件是否存在
-        if remote_file_exists(ssh, remote_path):
-            print(f"文件已存在，跳过推送: {file_path} -> {remote_path}")
+            # 检查远程文件是否存在
+            if remote_file_exists(ssh, remote_path):
+                print(f"文件已存在，跳过推送: {file_path} -> {remote_path}")
+                ssh.close()
+                return
+
+            # 确保远程目录存在
+            remote_dir = os.path.dirname(remote_path)
+            if not remote_mkdir(ssh, remote_dir):
+                print(f"无法创建远程目录: {remote_dir}")
+                ssh.close()
+                return
+
+            # 创建 SCP 客户端
+            print(f"开始推送文件: {file_path} -> {remote_path}")
+            with SCPClient(ssh.get_transport(), socket_timeout=30) as scp:  # 设置 socket 超时时间
+                scp.put(file_path, remote_path)
+                print(f"文件推送完成: {file_path} -> {remote_path}")
+
             ssh.close()
-            return
-
-        # 确保远程目录存在
-        remote_dir = os.path.dirname(remote_path)
-        if not remote_mkdir(ssh, remote_dir):
-            print(f"无法创建远程目录: {remote_dir}")
-            ssh.close()
-            return
-
-        # 创建 SCP 客户端
-        print(f"开始推送文件: {file_path} -> {remote_path}")
-        with SCPClient(ssh.get_transport()) as scp:
-            scp.put(file_path, remote_path)
-            print(f"文件推送完成: {file_path} -> {remote_path}")
-
-        ssh.close()
-    except Exception as e:
-        # 打印完整的错误信息和堆栈跟踪
-        print(f"推送文件失败: {file_path} -> {remote_path}")
-        print(f"错误详情: {e}")
-        print("堆栈跟踪:")
-        traceback.print_exc()
+            return  # 传输成功，退出函数
+        except Exception as e:
+            print(f"推送文件失败 (尝试 {attempt + 1}/{retries}): {file_path} -> {remote_path}")
+            print(f"错误详情: {e}")
+            print("堆栈跟踪:")
+            traceback.print_exc()
+            if attempt < retries - 1:
+                print(f"等待 5 秒后重试...")
+                time.sleep(5)  # 等待 5 秒后重试
+            else:
+                print(f"重试次数已达上限，放弃推送: {file_path} -> {remote_path}")
 
 def worker(file_queue, remote_base_path, remote_host, remote_port, remote_user, remote_password, stop_event):
     """
