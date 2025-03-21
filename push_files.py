@@ -4,9 +4,8 @@ import paramiko
 from scp import SCPClient
 from threading import Thread, Event
 from queue import Queue
-import traceback  # 用于打印完整的堆栈跟踪
-import time  # 用于重试间隔
-
+import traceback
+import time
 
 def get_user_input():
     """
@@ -58,8 +57,6 @@ def remote_mkdir(ssh, remote_dir):
         print(f"Failed to create remote directory {remote_dir}: {e}")
         return False
 
-import time  # 用于重试间隔
-
 def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, remote_password, retries=3):
     """
     使用 SCP 传输文件到远程服务器，支持重试
@@ -97,18 +94,9 @@ def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, 
             # 创建 SCP 客户端
             print(f"开始推送文件: {file_path} -> {remote_path}")
             with SCPClient(ssh.get_transport(), socket_timeout=6000) as scp:  # 设置 socket 超时时间
-                # 分块传输文件
-                with open(file_path, "rb") as fl:
-                    file_size = os.path.getsize(file_path)
-                    chunk_size = 1024 * 1024  # 每次传输 1MB
-                    offset = 0
-                    while offset < file_size:
-                        data = fl.read(chunk_size)
-                        scp.putfo(data, remote_path)
-                        offset += len(data)
-                        print(f"已传输: {offset}/{file_size} bytes")
+                scp.put(file_path, remote_path)
+                print(f"文件推送完成: {file_path} -> {remote_path}")
 
-            print(f"文件推送完成: {file_path} -> {remote_path}")
             ssh.close()
             return  # 传输成功，退出函数
         except Exception as e:
@@ -124,7 +112,7 @@ def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, 
 
 def worker(file_queue, remote_base_path, remote_host, remote_port, remote_user, remote_password, stop_event):
     """
-    工作线程：从队列中获取文件并传输
+    工作线程：从队列中获取文件并推送
     """
     while not stop_event.is_set():
         try:
@@ -137,14 +125,15 @@ def worker(file_queue, remote_base_path, remote_host, remote_port, remote_user, 
             finally:
                 file_queue.task_done()  # 确保任务完成
         except Exception as e:
-            print(f"工作线程错误: {e}")
+            if not file_queue.empty():
+                print(f"工作线程错误: {e}")
             break  # 退出线程
 
 def push_files(local_path, pattern, remote_host, remote_port, remote_user, remote_password, remote_base_path, threads):
     """
     推送文件或文件夹到远程服务器
     :param local_path: 本地路径（文件或文件夹）
-    :param pattern: 文件名模糊匹配模式（例如 "*.txt"）
+    :param pattern: 文件名匹配模式（例如 "*.txt"）
     :param remote_host: 远程服务器地址
     :param remote_port: 远程服务器端口
     :param remote_user: 远程服务器用户名
