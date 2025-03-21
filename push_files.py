@@ -78,7 +78,7 @@ def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, 
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             print(f"正在连接远程服务器 {remote_host}:{remote_port}...")
-            ssh.connect(remote_host, port=remote_port, username=remote_user, password=remote_password, timeout=600)  # 设置超时时间
+            ssh.connect(remote_host, port=remote_port, username=remote_user, password=remote_password, timeout=6000)  # 设置超时时间
             print(f"成功连接到远程服务器 {remote_host}:{remote_port}！")
 
             # 检查远程文件是否存在
@@ -96,7 +96,7 @@ def scp_transfer(file_path, remote_path, remote_host, remote_port, remote_user, 
 
             # 创建 SCP 客户端
             print(f"开始推送文件: {file_path} -> {remote_path}")
-            with SCPClient(ssh.get_transport(), socket_timeout=60) as scp:  # 设置 socket 超时时间
+            with SCPClient(ssh.get_transport(), socket_timeout=6000) as scp:  # 设置 socket 超时时间
                 # 分块传输文件
                 with open(file_path, "rb") as fl:
                     file_size = os.path.getsize(file_path)
