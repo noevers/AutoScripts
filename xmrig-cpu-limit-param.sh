@@ -328,3 +328,298 @@ EOF
     echo "脚本路径: $SCRIPT_PATH"
     echo "服务文件: $SERVICE_FILE"
     echo "日志文件: $LOG_FILE"
+    echo "默认CPU限制: ${cpu_limit}%"
+    echo ""
+    echo "服务状态:"
+    systemctl status xmrig-cpulimit --no-pager -l
+    echo -e "${BLUE}============================================${NC}"
+    
+    # 显示使用说明
+    show_usage
+}
+
+# 卸载脚本和服务
+uninstall_script() {
+    # 检查root权限
+    if [ "$EUID" -ne 0 ]; then 
+        log_message "${RED}请使用root权限运行卸载${NC}"
+        exit 1
+    fi
+    
+    log_message "${YELLOW}开始卸载xmrig CPU限制控制...${NC}"
+    
+    # 1. 停止服务
+    if systemctl is-active xmrig-cpulimit > /dev/null 2>&1; then
+        log_message "停止服务..."
+        systemctl stop xmrig-cpulimit
+    fi
+    
+    # 2. 禁用服务
+    if systemctl is-enabled xmrig-cpulimit > /dev/null 2>&1; then
+        log_message "禁用服务..."
+        systemctl disable xmrig-cpulimit
+    fi
+    
+    # 3. 删除服务文件
+    if [ -f "$SERVICE_FILE" ]; then
+        log_message "删除服务文件..."
+        rm -f "$SERVICE_FILE"
+        systemctl daemon-reload
+    fi
+    
+    # 4. 删除脚本
+    if [ -f "$SCRIPT_PATH" ]; then
+        log_message "删除控制脚本..."
+        rm -f "$SCRIPT_PATH"
+    fi
+    
+    # 5. 删除配置文件
+    [ -f "/etc/xmrig-cpu-limit.default" ] && rm -f "/etc/xmrig-cpu-limit.default"
+    
+    # 6. 删除PID文件
+    [ -f "$PID_FILE_CPULIMIT" ] && rm -f "$PID_FILE_CPULIMIT"
+    [ -f "$PID_FILE_XMRIG" ] && rm -f "$PID_FILE_XMRIG"
+    
+    # 7. 删除临时文件
+    [ -f "/tmp/xmrig_cpu_limit.last" ] && rm -f "/tmp/xmrig_cpu_limit.last"
+    
+    # 8. 保留日志文件供参考（可选）
+    log_message "日志文件保留在: $LOG_FILE"
+    
+    log_message "${GREEN}卸载完成！${NC}"
+    
+    echo -e "\n${YELLOW}注意:${NC}"
+    echo "- 日志文件 $LOG_FILE 已被保留"
+    echo "- cpulimit软件包未被移除，如需移除请手动执行: apt-get remove cpulimit"
+    echo "- xmrig进程不受影响，继续运行"
+}
+
+# 启用服务
+enable_service() {
+    if [ ! -f "$SERVICE_FILE" ]; then
+        log_message "${RED}服务未安装，请先运行安装${NC}"
+        exit 1
+    fi
+    
+    systemctl enable xmrig-cpulimit
+    log_message "${GREEN}已启用开机自启动${NC}"
+    systemctl status xmrig-cpulimit --no-pager -l
+}
+
+# 禁用服务
+disable_service() {
+    if [ ! -f "$SERVICE_FILE" ]; then
+        log_message "${RED}服务未安装${NC}"
+        exit 1
+    fi
+    
+    systemctl disable xmrig-cpulimit
+    log_message "${YELLOW}已禁用开机自启动${NC}"
+}
+
+# 服务启动（供systemd调用）
+service_start() {
+    local cpu_limit=${1:-$DEFAULT_CPU_LIMIT}
+    
+    # 等待xmrig启动
+    log_message "等待xmrig启动..."
+    local wait_time=0
+    local max_wait=60
+    
+    while [ $wait_time -lt $max_wait ]; do
+        if check_xmrig_running; then
+            log_message "检测到xmrig正在运行，应用CPU限制..."
+            start_cpulimit "$cpu_limit"
+            return 0
+        fi
+        sleep 5
+        wait_time=$((wait_time + 5))
+        log_message "等待xmrig... (${wait_time}/${max_wait}秒)"
+    done
+    
+    log_message "${RED}错误: 等待xmrig启动超时${NC}"
+    return 1
+}
+
+# 服务停止（供systemd调用）
+service_stop() {
+    stop_cpulimit
+}
+
+# 服务重启（供systemd调用）
+service_restart() {
+    local cpu_limit=${1:-$DEFAULT_CPU_LIMIT}
+    restart_cpulimit "$cpu_limit"
+}
+
+# 显示使用说明
+show_usage() {
+    echo -e "\n${BLUE}================== 使用说明 ==================${NC}"
+    echo "脚本已安装到系统，可以使用以下命令："
+    echo ""
+    echo "1. 直接控制命令:"
+    echo "   xmrig-cpulimit.sh start [CPU%]     # 启动CPU限制"
+    echo "   xmrig-cpulimit.sh stop             # 停止CPU限制"
+    echo "   xmrig-cpulimit.sh restart [CPU%]   # 重启CPU限制"
+    echo "   xmrig-cpulimit.sh status           # 查看状态"
+    echo ""
+    echo "2. 服务管理命令:"
+    echo "   systemctl start xmrig-cpulimit     # 启动服务"
+    echo "   systemctl stop xmrig-cpulimit      # 停止服务"
+    echo "   systemctl restart xmrig-cpulimit   # 重启服务"
+    echo "   systemctl status xmrig-cpulimit    # 查看服务状态"
+    echo "   journalctl -u xmrig-cpulimit -f    # 查看服务日志"
+    echo ""
+    echo "3. 系统管理命令:"
+    echo "   xmrig-cpulimit.sh enable           # 启用开机自启"
+    echo "   xmrig-cpulimit.sh disable          # 禁用开机自启"
+    echo "   xmrig-cpulimit.sh uninstall        # 卸载脚本和服务"
+    echo ""
+    echo "4. 查看日志:"
+    echo "   tail -f $LOG_FILE                  # 查看实时日志"
+    echo "   cat $LOG_FILE                      # 查看完整日志"
+    echo ""
+    echo "5. 示例:"
+    echo "   # 限制CPU为75%"
+    echo "   xmrig-cpulimit.sh start 75"
+    echo ""
+    echo "   # 重启服务"
+    echo "   systemctl restart xmrig-cpulimit"
+    echo -e "${BLUE}============================================${NC}\n"
+}
+
+# 显示帮助
+show_help() {
+    echo -e "${BLUE}================== xmrig CPU限制控制脚本 ==================${NC}"
+    echo "用于控制已安装xmrig的CPU使用率，支持系统服务管理"
+    echo ""
+    echo "安装和使用:"
+    echo "  sudo $0 install [CPU%]      安装脚本和服务"
+    echo "  $0 start [CPU%]             启动CPU限制"
+    echo "  $0 stop                     停止CPU限制"
+    echo "  $0 restart [CPU%]           重启CPU限制"
+    echo "  $0 status                   查看状态"
+    echo ""
+    echo "服务管理:"
+    echo "  $0 enable                   启用开机自启动"
+    echo "  $0 disable                  禁用开机自启动"
+    echo "  $0 uninstall                卸载脚本和服务"
+    echo "  $0 help                     显示此帮助"
+    echo ""
+    echo "系统服务命令 (安装后可用):"
+    echo "  systemctl start xmrig-cpulimit"
+    echo "  systemctl stop xmrig-cpulimit"
+    echo "  systemctl status xmrig-cpulimit"
+    echo ""
+    echo "注意:"
+    echo "  1. 需要先安装cpulimit: sudo apt install cpulimit"
+    echo "  2. xmrig需要已经在运行"
+    echo "  3. 首次使用请运行安装命令"
+    echo "  4. CPU限制值为1-100之间的整数"
+    echo -e "${BLUE}==========================================================${NC}"
+}
+
+# 查看日志
+view_log() {
+    if [ -f "$LOG_FILE" ]; then
+        echo -e "${BLUE}=== 最后100行日志 ===${NC}"
+        tail -n 100 "$LOG_FILE"
+        echo -e "${BLUE}=====================${NC}"
+        echo "完整日志文件: $LOG_FILE"
+        echo "日志大小: $(du -h "$LOG_FILE" | cut -f1)"
+    else
+        log_message "${YELLOW}日志文件不存在${NC}"
+    fi
+}
+
+# 主函数
+main() {
+    # 创建必要的目录
+    mkdir -p /var/run /var/log
+    
+    case "$1" in
+        install)
+            shift
+            install_script "$@"
+            ;;
+        start)
+            shift
+            start_cpulimit "$@"
+            ;;
+        stop)
+            stop_cpulimit
+            ;;
+        restart)
+            shift
+            restart_cpulimit "$@"
+            ;;
+        status)
+            show_status
+            ;;
+        enable)
+            enable_service
+            ;;
+        disable)
+            disable_service
+            ;;
+        uninstall)
+            uninstall_script
+            ;;
+        service-start)
+            shift
+            service_start "$@"
+            ;;
+        service-stop)
+            service_stop
+            ;;
+        service-restart)
+            shift
+            service_restart "$@"
+            ;;
+        log)
+            view_log
+            ;;
+        help|--help|-h|"")
+            show_help
+            ;;
+        *)
+            # 如果第一个参数是数字，则作为CPU限制值
+            if [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -le 100 ] && [ "$1" -ge 1 ]; then
+                if [ "$2" == "start" ]; then
+                    start_cpulimit "$1"
+                elif [ "$2" == "restart" ]; then
+                    restart_cpulimit "$1"
+                else
+                    log_message "${YELLOW}用法: $0 [CPU百分比] [start|restart]${NC}"
+                    log_message "示例: $0 75 start"
+                fi
+            else
+                log_message "${RED}未知命令: $1${NC}"
+                show_help
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+# 检查是否需要root权限
+check_root_for_admin_commands() {
+    local cmd="$1"
+    local root_commands="install uninstall enable disable service-start service-stop service-restart"
+    
+    for root_cmd in $root_commands; do
+        if [ "$cmd" == "$root_cmd" ]; then
+            if [ "$EUID" -ne 0 ]; then 
+                log_message "${RED}此命令需要root权限，请使用: sudo $0 $cmd${NC}"
+                exit 1
+            fi
+        fi
+    done
+}
+
+# 运行主函数
+if [ $# -ge 1 ]; then
+    check_root_for_admin_commands "$1"
+fi
+
+main "$@"
