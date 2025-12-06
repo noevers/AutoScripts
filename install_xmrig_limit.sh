@@ -13,7 +13,7 @@
 set -e
 
 # 配置区域
-PROCESS_PATTERN="/root/c3pool/xmrig.*--config"  # xmrig进程查找模式
+PROCESS_PATTERN="/root/c3pool/xmrig.*"  # xmrig进程查找模式
 SERVICE_NAME="xmrig-cpulimit-daemon"           # systemd服务名称
 MONITOR_SCRIPT="/usr/local/bin/xmrig_cpulimit_monitor.sh"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
