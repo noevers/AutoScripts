@@ -47,6 +47,9 @@ else
     echo "cpulimit 已安装。"
 fi
 
+# 清理可能已存在的同名限制进程2
+pkill -f "/bin/bash /usr/local/bin/limit_xmrig_cpu.sh" 2>/dev/null && sleep 2
+
 # 2. 创建监控脚本 (关键修改：使用 -e 参数按进程名限制)
 echo "步骤2: 创建CPU限制监控脚本..."
 cat > /usr/local/bin/limit_xmrig_cpu.sh << 'EOF'
@@ -62,10 +65,6 @@ log_message() {
 
 # 清理可能已存在的同名限制进程
 pkill -f "cpulimit.*-e.*xmrig" 2>/dev/null && sleep 2
-
-# 清理可能已存在的同名限制进程2
-pkill -f "/bin/bash /usr/local/bin/limit_xmrig_cpu.sh" 2>/dev/null && sleep 2
-
 
 log_message "启动 xmrig CPU 限制监控 (总利用率限制: ${LIMIT_PERCENT}%)"
 
