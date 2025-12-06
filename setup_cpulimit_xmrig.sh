@@ -62,6 +62,8 @@ log_message() {
 
 # 清理可能已存在的同名限制进程
 pkill -f "cpulimit.*-e.*xmrig" 2>/dev/null && sleep 2
+
+# 清理可能已存在的同名限制进程2
 pkill -f ".*limit_xmrig_cpu.*" 2>/dev/null && sleep 2
 
 
